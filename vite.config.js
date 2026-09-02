@@ -4,7 +4,6 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   base: "/Paseka/",
-
   plugins: [react(), tailwindcss()],
 
   server: {
