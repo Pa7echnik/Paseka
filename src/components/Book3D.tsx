@@ -1,144 +1,94 @@
-import { useRef, useState } from "react";
-import { useLibrary } from "../lib/store";
+import { useEffect, useRef } from "react";
+import { useSettings } from "../hooks/useSettings";
 
-function CornerOrnament({ rotate }: { rotate: number }) {
-  return (
-    <svg
-      viewBox="0 0 40 40"
-      className="absolute w-9 h-9 text-gold-500/70"
-      style={{ transform: `rotate(${rotate}deg)` }}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.2"
-    >
-      <path d="M2 38V14C2 7.4 7.4 2 14 2h24" strokeLinecap="round" />
-      <path d="M2 24c8 0 14-6 14-14" opacity="0.7" strokeLinecap="round" />
-      <circle cx="9" cy="9" r="2.2" />
-    </svg>
-  );
-}
+export const DEFAULT_COVER =
+  "https://image.qwenlm.ai/generated-images/113fe3e3-e5c6-432c-bf76-799a79a31303/_result.png";
 
-function Seal() {
-  return (
-    <svg viewBox="0 0 120 120" className="w-28 h-28" fill="none" stroke="#d4ab5c" aria-hidden>
-      <circle cx="60" cy="60" r="56" strokeWidth="1.4" opacity="0.9" />
-      <circle cx="60" cy="60" r="48" strokeWidth="0.8" strokeDasharray="3 6" opacity="0.8" />
-      <path
-        d="M60 22 L68 48 L95 48 L73 64 L81 90 L60 74 L39 90 L47 64 L25 48 L52 48 Z"
-        strokeWidth="1.2"
-        opacity="0.95"
-      />
-      <path d="M60 40v40M45 60h30" strokeWidth="0.8" opacity="0.6" />
-      <circle cx="60" cy="60" r="4" fill="#d4ab5c" stroke="none" opacity="0.9" />
-    </svg>
-  );
-}
+/**
+ * Объёмная книга: CSS-кубоид (обложка, корешок, блок страниц),
+ * плавный наклон за курсором и медленное парение.
+ */
+export function Book3D({ title, author, cover = DEFAULT_COVER }: { title: string; author: string; cover?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const target = useRef({ rx: 6, ry: -17 });
+  const cur = useRef({ rx: 6, ry: -17 });
+  const { settings } = useSettings();
 
-export function Book3D() {
-  const { meta } = useLibrary();
-  const stage = useRef<HTMLDivElement>(null);
-  const [rot, setRot] = useState({ x: 8, y: -26 });
+  useEffect(() => {
+    if (!settings.motion) return;
+    let raf = 0;
+    const loop = () => {
+      cur.current.rx += (target.current.rx - cur.current.rx) * 0.07;
+      cur.current.ry += (target.current.ry - cur.current.ry) * 0.07;
+      if (ref.current) {
+        ref.current.style.transform = `rotateX(${cur.current.rx}deg) rotateY(${cur.current.ry}deg)`;
+      }
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [settings.motion]);
 
   return (
     <div
-      ref={stage}
-      className="book-stage relative flex items-center justify-center py-10 select-none"
+      className="relative"
       onMouseMove={(e) => {
-        const el = stage.current;
-        if (!el) return;
+        const el = ref.current;
+        if (!el || !settings.motion) return;
         const r = el.getBoundingClientRect();
         const px = (e.clientX - r.left) / r.width - 0.5;
         const py = (e.clientY - r.top) / r.height - 0.5;
-        setRot({ x: 8 - py * 14, y: -26 + px * 22 });
+        target.current = { rx: 6 - py * 16, ry: -17 + px * 22 };
       }}
-      onMouseLeave={() => setRot({ x: 8, y: -26 })}
+      onMouseLeave={() => {
+        target.current = { rx: 6, ry: -17 };
+      }}
     >
-      {/* glow behind book */}
-      <div
-        className="absolute w-[420px] h-[420px] rounded-full opacity-40 blur-3xl"
-        style={{
-          background:
-            "radial-gradient(circle, rgba(212,171,92,0.22), rgba(95,143,111,0.12) 55%, transparent 70%)",
-        }}
-      />
-
-      <div className="anim-floaty relative" style={{ transform: "translateZ(0)" }}>
-        <div
-          className="book3d"
-          style={{ transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg)` }}
-        >
-          {/* pages block: right edge */}
-          <div className="face f-side f-pages pages-edge" />
-          {/* top & bottom page caps */}
-          <div className="face f-cap f-top pages-cap" />
-          <div className="face f-cap f-bottom pages-cap" />
-          {/* spine */}
-          <div className="face f-side f-spine spine-leather flex flex-col items-center justify-between py-6">
-            <svg viewBox="0 0 24 24" className="w-5 h-5 text-gold-500/80" fill="none" stroke="currentColor" strokeWidth="1.4">
-              <path d="M12 3l2.2 5 5.3.6-4 3.7 1.1 5.2L12 14.8 7.4 17.5l1.1-5.2-4-3.7 5.3-.6L12 3z" />
-            </svg>
-            <span
-              className="font-display text-gold-300/90 text-lg tracking-[0.35em] uppercase"
-              style={{ writingMode: "vertical-rl" }}
-            >
-              {meta.title}
-            </span>
-            <svg viewBox="0 0 24 24" className="w-5 h-5 text-gold-500/80" fill="none" stroke="currentColor" strokeWidth="1.4">
-              <circle cx="12" cy="12" r="8" />
-              <path d="m15 9-2 4.5L8.5 15l2-4.5L15 9z" />
-            </svg>
-          </div>
-
-          {/* back cover */}
-          <div className="face f-back cover-leather" />
-
-          {/* front cover */}
-          <div className="face f-front cover-leather overflow-hidden">
-            {/* frame */}
-            <div className="absolute inset-3 border border-gold-500/40 rounded-[4px]" />
-            <div className="absolute inset-[18px] border border-gold-500/20 rounded-[3px]" />
-
-            {/* corners */}
-            <div className="absolute top-3 left-3 translate-x-[3px] translate-y-[3px]"><CornerOrnament rotate={0} /></div>
-            <div className="absolute top-3 right-3 -translate-x-[3px] translate-y-[3px]"><CornerOrnament rotate={90} /></div>
-            <div className="absolute bottom-3 right-3 -translate-x-[3px] -translate-y-[3px]"><CornerOrnament rotate={180} /></div>
-            <div className="absolute bottom-3 left-3 translate-x-[3px] -translate-y-[3px]"><CornerOrnament rotate={270} /></div>
-
-            {/* clasp */}
-            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-16 bg-gradient-to-l from-gold-600/80 to-gold-500/40 rounded-l-sm shadow-[0_0_12px_rgba(212,171,92,0.35)]" />
-
-            {/* content */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-9">
-              <p className="font-mono text-[9px] tracking-[0.4em] uppercase text-gold-400/80 mb-6">
-                {meta.subtitle || "хроники"}
-              </p>
-              <Seal />
-              <h2 className="font-display text-[2.35rem] leading-[1.05] font-semibold text-parch-100 mt-6 drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
-                {meta.title}
-              </h2>
-              <div className="flex items-center gap-2 mt-5 text-gold-500/70">
-                <span className="ornament-line w-10" />
-                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="currentColor">
-                  <path d="M12 4l1.8 6.2L20 12l-6.2 1.8L12 20l-1.8-6.2L4 12l6.2-1.8L12 4z" />
-                </svg>
-                <span className="ornament-line w-10" />
+      <div className={settings.motion ? "anim-floaty" : ""}>
+        <div className="book-stage flex justify-center py-6">
+          <div ref={ref} className="book3d" style={{ transform: "rotateX(6deg) rotateY(-17deg)" }}>
+            <div className="face f-front cover-skin">
+              <img
+                src={cover}
+                alt="Обложка книги"
+                className="absolute inset-0 w-full h-full object-cover opacity-90"
+                draggable={false}
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/25" />
+              <div className="absolute inset-x-0 bottom-0 px-6 pb-6 text-center">
+                <div className="ornament-line mb-3" />
+                <p
+                  className="font-display text-[24px] font-semibold leading-tight tracking-wide text-[#ece3cc]"
+                  style={{ textShadow: "0 2px 14px rgba(0,0,0,0.85)" }}
+                >
+                  {title}
+                </p>
+                <p className="font-mono text-[9px] tracking-[0.3em] uppercase text-[#c8a86a] mt-2.5">{author}</p>
               </div>
-              <p className="font-display italic text-parch-300 text-lg mt-5">{meta.author}</p>
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{ boxShadow: "inset 14px 0 26px rgba(0,0,0,0.55), inset -4px 0 12px rgba(0,0,0,0.35)" }}
+              />
             </div>
-
-            {/* sheen */}
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                background:
-                  "linear-gradient(115deg, transparent 30%, rgba(240,231,210,0.06) 45%, transparent 60%)",
-              }}
-            />
+            <div className="face f-back cover-skin" />
+            <div className="face f-side f-pages pages-edge" />
+            <div className="face f-side f-spine spine-skin flex items-center justify-center">
+              <span
+                className="font-display text-[15px] font-semibold tracking-[0.18em] text-[#cfc2a2]"
+                style={{ writingMode: "vertical-rl", textShadow: "0 1px 6px rgba(0,0,0,.7)" }}
+              >
+                {title}
+              </span>
+            </div>
+            <div className="face f-cap f-top pages-cap" />
+            <div className="face f-cap f-bottom pages-cap" />
           </div>
         </div>
-
-        <div className="book-shadow" />
       </div>
+      <div className="book-shadow" aria-hidden />
     </div>
   );
 }

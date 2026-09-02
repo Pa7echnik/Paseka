@@ -1,118 +1,242 @@
-import { useState } from "react";
-import { LibraryProvider, useLibrary } from "./lib/store";
-import type { TabId } from "./lib/types";
-import { Background } from "./components/Background";
+import { useEffect, useState } from "react";
+import { AnimatePresence, MotionConfig, motion } from "framer-motion";
+import type { Tab } from "./types";
+import { LibraryProvider, useLibrary } from "./hooks/useLibrary";
+import { SettingsProvider, useSettings } from "./hooks/useSettings";
+import { PlayerProvider, usePlayer } from "./hooks/usePlayer";
+import { Atmosphere } from "./components/Atmosphere";
 import { Icon } from "./components/Icons";
 import type { IconName } from "./components/Icons";
-import { AmbientButton } from "./components/AmbientButton";
-import { ChronicleTab } from "./components/tabs/ChronicleTab";
-import { CharactersTab } from "./components/tabs/CharactersTab";
-import { LoreTab } from "./components/tabs/LoreTab";
-import { MapTab } from "./components/tabs/MapTab";
+import { HomePage } from "./pages/HomePage";
+import { ReadingPage } from "./pages/ReadingPage";
+import { CharactersPage } from "./pages/CharactersPage";
+import { LorePage } from "./pages/LorePage";
+import { MapPage } from "./pages/MapPage";
+import { TimelinePage } from "./pages/TimelinePage";
+import { MusicPage } from "./pages/MusicPage";
+import { SettingsPage } from "./pages/SettingsPage";
 
-const TABS: { id: TabId; label: string; icon: IconName }[] = [
-  { id: "book", label: "Книга", icon: "book" },
-  { id: "characters", label: "Персонажи", icon: "helm" },
-  { id: "lore", label: "Лор мира", icon: "scroll" },
-  { id: "map", label: "Карта", icon: "compass" },
+const NAV: { id: Tab; label: string; icon: IconName }[] = [
+  { id: "home", label: "Книга", icon: "book" },
+  { id: "characters", label: "Герои", icon: "users" },
+  { id: "lore", label: "Лор", icon: "scroll" },
+  { id: "map", label: "Карта", icon: "map" },
+  { id: "timeline", label: "Хроника", icon: "clock" },
+  { id: "music", label: "Музыка", icon: "music" },
+  { id: "settings", label: "Режим", icon: "settings" },
 ];
 
-function SaveBadge() {
-  const { savedAt } = useLibrary();
-  if (!savedAt) return null;
+export default function App() {
   return (
-    <span key={savedAt} className="anim-save hidden sm:inline-flex items-center gap-1.5 font-mono text-[10px] tracking-[0.18em] uppercase text-fog-300">
-      <Icon name="check" className="w-3.5 h-3.5" />
-      сохранено {new Date(savedAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
-    </span>
+    <SettingsProvider>
+      <LibraryProvider>
+        <PlayerProvider>
+          <Shell />
+        </PlayerProvider>
+      </LibraryProvider>
+    </SettingsProvider>
   );
 }
 
 function Shell() {
-  const { meta } = useLibrary();
-  const [tab, setTab] = useState<TabId>("book");
+  const [tab, setTab] = useState<Tab>("home");
+  const [readingId, setReadingId] = useState<string | null>(null);
+  const { settings } = useSettings();
+  const lib = useLibrary();
+  const player = usePlayer();
+
+  const [savedFlash, setSavedFlash] = useState(false);
+  useEffect(() => {
+    if (!lib.savedAt) return;
+    setSavedFlash(true);
+    const t = setTimeout(() => setSavedFlash(false), 2400);
+    return () => clearTimeout(t);
+  }, [lib.savedAt]);
+
+  const goTab = (t: Tab) => {
+    setReadingId(null);
+    setTab(t);
+    window.scrollTo({ top: 0 });
+  };
 
   return (
-    <div className="relative min-h-screen">
-      <Background />
+    <MotionConfig reducedMotion={settings.motion ? "never" : "always"}>
+      <div className="min-h-screen bg-app relative">
+        <Atmosphere />
 
-      {/* ===== header ===== */}
-      <header className="sticky top-0 z-40 border-b border-line bg-ink-950/85 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-4">
-          <button onClick={() => setTab("book")} className="flex items-center gap-3 shrink-0 group">
-            <span className="w-9 h-9 rounded-md border border-gold-500/50 bg-gold-500/10 flex items-center justify-center text-gold-300 group-hover:bg-gold-500/20 group-hover:shadow-[0_0_18px_rgba(212,171,92,0.25)] transition-all">
-              <Icon name="book" className="w-5 h-5" />
-            </span>
-            <span className="hidden md:block text-left leading-tight">
-              <span className="block font-mono text-[9px] tracking-[0.3em] uppercase text-parch-400">Гримуар автора</span>
-              <span className="block font-display text-lg font-semibold text-parch-100">{meta.title}</span>
+        {/* зерно бумаги */}
+        <div
+          className="fixed inset-0 z-[1] pointer-events-none opacity-[0.045] mix-blend-overlay"
+          style={{
+            backgroundImage:
+              "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E\")",
+          }}
+          aria-hidden
+        />
+
+        {/* ===== боковая навигация (desktop) ===== */}
+        <nav className="hidden md:flex fixed left-0 top-0 h-full w-[86px] z-40 flex-col items-center py-5 border-r line-c bg-[color-mix(in_srgb,var(--panel)_82%,transparent)] backdrop-blur-md">
+          <button onClick={() => goTab("home")} className="mb-7 group" title="Песнь Пепла">
+            <span className="w-11 h-11 rotate-45 rounded-[10px] border border-[color-mix(in_srgb,var(--gold)_55%,transparent)] flex items-center justify-center group-hover:border-[var(--acc)] transition-colors">
+              <Icon name="star" className="w-5 h-5 -rotate-45 acc-t" />
             </span>
           </button>
-
-          <nav className="flex items-center gap-1 mx-auto overflow-x-auto no-scrollbar">
-            {TABS.map((t) => {
-              const active = tab === t.id;
+          <div className="flex flex-col gap-1 w-full px-2.5 flex-1">
+            {NAV.map((item) => {
+              const active = tab === item.id && !readingId;
               return (
                 <button
-                  key={t.id}
-                  onClick={() => setTab(t.id)}
-                  className={`relative flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-md text-sm font-semibold whitespace-nowrap transition-colors duration-200 ${
-                    active ? "text-gold-200" : "text-parch-400 hover:text-parch-100"
+                  key={item.id}
+                  onClick={() => goTab(item.id)}
+                  className={`relative flex flex-col items-center gap-1 py-2.5 rounded-lg transition-all duration-200 ${
+                    active ? "acc-t bg-[color-mix(in_srgb,var(--acc)_10%,transparent)]" : "tx3 hover:tx1"
                   }`}
+                  title={item.label}
                 >
-                  <Icon name={t.icon} className={`w-4 h-4 ${active ? "text-gold-400" : ""}`} />
-                  {t.label}
-                  <span
-                    className={`absolute left-3 right-3 -bottom-[13px] h-[2px] rounded-full bg-gradient-to-r from-transparent via-gold-400 to-transparent transition-opacity duration-300 ${
-                      active ? "opacity-100" : "opacity-0"
-                    }`}
-                  />
+                  {active && (
+                    <span className="absolute -left-2.5 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r bg-[var(--acc)]" />
+                  )}
+                  <Icon name={item.icon} className="w-5 h-5" />
+                  <span className="text-[9px] font-mono tracking-[0.14em] uppercase">{item.label}</span>
                 </button>
               );
             })}
-          </nav>
-
-          <div className="flex items-center gap-3 shrink-0">
-            <SaveBadge />
-            <AmbientButton />
           </div>
-        </div>
-      </header>
-
-      {/* ===== content ===== */}
-      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 pt-10 sm:pt-14 pb-24">
-        <div key={tab}>
-          {tab === "book" && <ChronicleTab onNavigate={setTab} />}
-          {tab === "characters" && <CharactersTab />}
-          {tab === "lore" && <LoreTab />}
-          {tab === "map" && <MapTab />}
-        </div>
-      </main>
-
-      {/* ===== footer ===== */}
-      <footer className="relative z-10 border-t border-line bg-ink-950/70">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="font-display italic text-parch-300 text-lg">
-            «Карта — это обещание дороги, а дорога — обещание истории».
-          </p>
-          <div className="text-center sm:text-right">
-            <p className="font-mono text-[10px] tracking-[0.22em] uppercase text-parch-400">
-              Гримуар автора · всё хранится в вашем браузере
-            </p>
-            <p className="font-mono text-[10px] tracking-[0.15em] text-parch-400/70 mt-1.5">
-              впереди: музыкальные темы к главам и звуки локаций
-            </p>
+          <div
+            className={`flex flex-col items-center gap-1.5 transition-opacity duration-500 ${savedFlash ? "opacity-100" : "opacity-45"}`}
+            title="Все изменения сохраняются локально"
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${savedFlash ? "bg-[var(--moss)]" : "bg-[var(--tx-3)]"}`} />
+            <span className="text-[8.5px] font-mono tracking-[0.16em] uppercase tx3">
+              {savedFlash ? "сохранено" : "автосейв"}
+            </span>
           </div>
-        </div>
-      </footer>
-    </div>
+        </nav>
+
+        {/* ===== верхняя навигация (mobile) ===== */}
+        <header className="md:hidden fixed top-0 inset-x-0 z-40 border-b line-c bg-[color-mix(in_srgb,var(--panel)_90%,transparent)] backdrop-blur-md">
+          <div className="flex items-center gap-2 px-3 h-13 py-2">
+            <button onClick={() => goTab("home")} className="shrink-0">
+              <span className="w-8 h-8 rotate-45 rounded-lg border border-[color-mix(in_srgb,var(--gold)_55%,transparent)] flex items-center justify-center">
+                <Icon name="star" className="w-3.5 h-3.5 -rotate-45 acc-t" />
+              </span>
+            </button>
+            <div className="flex-1 overflow-x-auto no-scrollbar">
+              <div className="flex items-center gap-1 px-1">
+                {NAV.map((item) => {
+                  const active = tab === item.id && !readingId;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => goTab(item.id)}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-md whitespace-nowrap text-[13px] transition-colors ${
+                        active
+                          ? "acc-t bg-[color-mix(in_srgb,var(--acc)_10%,transparent)]"
+                          : "tx3"
+                      }`}
+                    >
+                      <Icon name={item.icon} className="w-4 h-4" />
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* ===== содержимое ===== */}
+        <main className="relative z-10 md:pl-[86px] pt-[56px] md:pt-0">
+          <div className="max-w-[1280px] mx-auto px-5 sm:px-8 py-10 md:py-14">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={tab}
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+              >
+                {tab === "home" && <HomePage onRead={setReadingId} onNav={goTab} />}
+                {tab === "characters" && <CharactersPage />}
+                {tab === "lore" && <LorePage />}
+                {tab === "map" && <MapPage onNav={goTab} />}
+                {tab === "timeline" && <TimelinePage onNav={goTab} />}
+                {tab === "music" && <MusicPage />}
+                {tab === "settings" && <SettingsPage />}
+              </motion.div>
+            </AnimatePresence>
+
+            <footer className="mt-20 pt-8 border-t line-c flex flex-wrap items-center gap-x-6 gap-y-2">
+              <span className="font-display italic tx2 text-lg">{lib.meta.title} · черновик</span>
+              <span className="tx3 text-sm">
+                {lib.chapters.length} глав · {lib.characters.length} персонажей · {lib.locations.length} локаций
+              </span>
+              <span className="tx3 text-[12.5px] ml-auto flex items-center gap-2">
+                <Icon name="music" className="w-3.5 h-3.5 acc-t" />
+                музыка и темы привязываются к главам и локациям — вкладка «Музыка»
+              </span>
+            </footer>
+          </div>
+        </main>
+
+        {/* ===== чтение поверх всего ===== */}
+        <AnimatePresence>
+          {readingId && (
+            <motion.div
+              key={readingId}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25 }}
+            >
+              <ReadingPage
+                chapterId={readingId}
+                onClose={() => setReadingId(null)}
+                onNavChapter={setReadingId}
+                onNav={goTab}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <MiniPlayer />
+      </div>
+    </MotionConfig>
   );
 }
 
-export default function App() {
+function MiniPlayer() {
+  const player = usePlayer();
+  const { current, playing, progress, toggle, next } = player;
+  if (!current) return null;
+
+  const pct = Math.min(100, (progress / current.duration) * 100);
   return (
-    <LibraryProvider>
-      <Shell />
-    </LibraryProvider>
+    <div className="fixed z-40 bottom-4 inset-x-4 md:inset-x-auto md:right-6 md:w-[330px]">
+      <div className="panel-c shadow-2xl shadow-black/40 overflow-hidden">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <span className="w-9 h-9 rounded-md border border-[color-mix(in_srgb,var(--gold)_35%,transparent)] bg-[var(--bg-2)] flex items-center justify-center shrink-0">
+            <Icon name="music" className="w-4 h-4 tx2" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[13.5px] font-medium tx1 truncate">{current.title}</p>
+            <p className="tx3 text-[11.5px] truncate">{current.category} · {current.subtitle}</p>
+          </div>
+          <button
+            onClick={toggle}
+            className="w-9 h-9 rounded-full bg-[var(--acc)] text-[var(--bg)] flex items-center justify-center hover:bg-[var(--acc-strong)] transition-colors shrink-0"
+            title={playing ? "Пауза" : "Играть"}
+          >
+            <Icon name={playing ? "pause" : "play"} className="w-4 h-4" strokeWidth={2} />
+          </button>
+          <button onClick={next} className="p-1.5 tx3 hover:tx1 transition-colors shrink-0" title="Дальше">
+            <Icon name="next" className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="h-[3px] bg-[var(--line)]">
+          <div className="h-full bg-[var(--acc)] transition-[width] duration-500" style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+    </div>
   );
 }

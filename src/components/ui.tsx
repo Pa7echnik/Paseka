@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
+import { motion } from "framer-motion";
 import { Icon } from "./Icons";
+import type { IconName } from "./Icons";
+
+const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
 /* ---------------- Scroll reveal ---------------- */
 
@@ -8,33 +12,45 @@ export function Reveal({
   children,
   delay = 0,
   className = "",
+  y = 24,
 }: {
   children: ReactNode;
   delay?: number;
   className?: string;
+  y?: number;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((e) => {
-          if (e.isIntersecting) {
-            el.classList.add("is-in");
-            io.disconnect();
-          }
-        });
-      },
-      { threshold: 0.12 },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
   return (
-    <div ref={ref} className={`reveal ${className}`} style={{ "--rv-delay": `${delay}ms` } as CSSProperties}>
+    <motion.div
+      className={className}
+      initial={{ opacity: 0, y }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{ duration: 0.65, delay: delay / 1000, ease: EASE }}
+    >
       {children}
-    </div>
+    </motion.div>
+  );
+}
+
+/* ---------------- Ink line-mask title reveal ---------------- */
+
+export function InkTitle({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <motion.span
+      className={`block overflow-hidden ${className}`}
+      initial={{ clipPath: "inset(0 100% 0 0)", opacity: 0.4 }}
+      whileInView={{ clipPath: "inset(0 0% 0 0)", opacity: 1 }}
+      viewport={{ once: true, margin: "-40px" }}
+      transition={{ duration: 1, ease: EASE }}
+    >
+      {children}
+    </motion.span>
   );
 }
 
@@ -42,38 +58,37 @@ export function Reveal({
 
 export function Tilt({
   children,
-  max = 9,
+  max = 7,
   className = "",
-  scale = 1.02,
 }: {
   children: ReactNode;
   max?: number;
   className?: string;
-  scale?: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [t, setT] = useState({ rx: 0, ry: 0, s: 1 });
+  const [t, setT] = useState({ rx: 0, ry: 0 });
 
   return (
     <div
       ref={ref}
       className={className}
-      style={{ perspective: 900 }}
+      style={{ perspective: 1000 }}
       onMouseMove={(e) => {
         const el = ref.current;
         if (!el) return;
         const r = el.getBoundingClientRect();
         const px = (e.clientX - r.left) / r.width - 0.5;
         const py = (e.clientY - r.top) / r.height - 0.5;
-        setT({ rx: -py * max * 2, ry: px * max * 2, s: scale });
+        setT({ rx: -py * max, ry: px * max });
       }}
-      onMouseLeave={() => setT({ rx: 0, ry: 0, s: 1 })}
+      onMouseLeave={() => setT({ rx: 0, ry: 0 })}
     >
       <div
         style={{
-          transform: `rotateX(${t.rx}deg) rotateY(${t.ry}deg) scale(${t.s})`,
-          transition: "transform 0.18s ease-out",
+          transform: `rotateX(${t.rx}deg) rotateY(${t.ry}deg)`,
+          transition: "transform 0.2s ease-out",
           transformStyle: "preserve-3d",
+          height: "100%",
         }}
       >
         {children}
@@ -112,20 +127,20 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
+      className="fixed inset-0 z-[70] flex items-start justify-center p-4 overflow-y-auto"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="fixed inset-0 bg-ink-950/80 backdrop-blur-[3px]" onMouseDown={onClose} />
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-[3px]" onMouseDown={onClose} />
       <div
-        className={`panel panel-corner relative z-10 w-full ${wide ? "max-w-2xl" : "max-w-lg"} my-8 shadow-2xl shadow-black/60 tab-in`}
+        className={`panel-c panel-corner relative z-10 w-full ${wide ? "max-w-2xl" : "max-w-lg"} my-10 shadow-2xl shadow-black/50`}
         role="dialog"
         aria-modal="true"
       >
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-line">
-          <h3 className="font-display text-2xl font-semibold text-parch-100">{title}</h3>
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b line-c">
+          <h3 className="font-display text-2xl font-semibold tx1">{title}</h3>
           <button
             onClick={onClose}
-            className="p-1.5 text-parch-400 hover:text-gold-300 transition-colors"
+            className="p-1.5 tx3 hover:acc-t transition-colors"
             aria-label="Закрыть"
           >
             <Icon name="close" className="w-5 h-5" />
@@ -149,19 +164,20 @@ export function Btn({
 }: {
   children: ReactNode;
   onClick?: () => void;
-  variant?: "gold" | "ghost" | "danger";
+  variant?: "accent" | "ghost" | "danger";
   className?: string;
   type?: "button" | "submit";
   disabled?: boolean;
 }) {
   const base =
-    "inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold tracking-wide transition-all duration-200 disabled:opacity-40 disabled:pointer-events-none";
+    "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-semibold tracking-wide transition-all duration-200 disabled:opacity-40 disabled:pointer-events-none active:translate-y-px";
   const styles = {
-    gold: "bg-gold-500/15 text-gold-300 border border-gold-500/45 hover:bg-gold-500/25 hover:border-gold-400 hover:shadow-[0_0_22px_rgba(212,171,92,0.18)] active:translate-y-px",
+    accent:
+      "text-[var(--bg)] bg-[var(--acc)] border border-[var(--acc)] hover:bg-[var(--acc-strong)] hover:border-[var(--acc-strong)] hover:shadow-[0_4px_24px_-6px_var(--acc)]",
     ghost:
-      "text-parch-300 border border-line bg-ink-800/40 hover:text-parch-100 hover:border-fog-500/60 hover:bg-ink-700/60 active:translate-y-px",
+      "tx2 border line-c bg-[color-mix(in_srgb,var(--panel)_60%,transparent)] hover:tx1 hover:border-[var(--line-2)]",
     danger:
-      "text-blood border border-blood/40 bg-blood/10 hover:bg-blood/20 hover:border-blood/70 active:translate-y-px",
+      "text-[var(--danger)] border border-[color-mix(in_srgb,var(--danger)_45%,transparent)] bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] hover:bg-[color-mix(in_srgb,var(--danger)_20%,transparent)]",
   } as const;
   return (
     <button type={type} onClick={onClick} disabled={disabled} className={`${base} ${styles[variant]} ${className}`}>
@@ -170,7 +186,6 @@ export function Btn({
   );
 }
 
-/* Two-step inline confirm */
 export function ConfirmBtn({
   onConfirm,
   label,
@@ -200,22 +215,72 @@ export function ConfirmBtn({
         }
       }}
       className={`inline-flex items-center gap-1.5 transition-all duration-200 ${
-        armed ? "text-blood" : "text-parch-400 hover:text-blood"
+        armed ? "text-[var(--danger)]" : "tx3 hover:text-[var(--danger)]"
       } ${className}`}
-      title="Удалить"
     >
-      {armed ? (
-        <span className="text-xs font-semibold">{confirmLabel}</span>
-      ) : (
-        <Icon name="trash" className="w-4 h-4" />
-      )}
-      {!armed && <span className="sr-only">{confirmLabel}</span>}
-      {armed ? null : label}
+      {armed ? <span className="text-xs font-semibold">{confirmLabel}</span> : <Icon name="trash" className="w-4 h-4" />}
+      {!armed && label}
     </button>
   );
 }
 
-/* ---------------- Section heading ---------------- */
+/* ---------------- Chips & controls ---------------- */
+
+export function Chip({
+  active,
+  onClick,
+  children,
+  icon,
+}: {
+  active?: boolean;
+  onClick?: () => void;
+  children: ReactNode;
+  icon?: IconName;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[13px] transition-all duration-200 ${
+        active
+          ? "border-[color-mix(in_srgb,var(--acc)_60%,transparent)] bg-[color-mix(in_srgb,var(--acc)_14%,transparent)] tx1"
+          : "line-c tx3 hover:tx2 hover:border-[var(--line-2)]"
+      }`}
+    >
+      {icon && <Icon name={icon} className="w-3.5 h-3.5" />}
+      {children}
+    </button>
+  );
+}
+
+export function Seg<T extends string>({
+  value,
+  onChange,
+  options,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  options: { value: T; label: string }[];
+}) {
+  return (
+    <div className="inline-flex p-1 rounded-lg border line-c bg-[var(--bg-2)] gap-1">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          onClick={() => onChange(o.value)}
+          className={`px-3.5 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
+            value === o.value
+              ? "bg-[color-mix(in_srgb,var(--acc)_18%,transparent)] tx1 border border-[color-mix(in_srgb,var(--acc)_45%,transparent)]"
+              : "tx3 hover:tx2 border border-transparent"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ---------------- Layout bits ---------------- */
 
 export function SectionHead({
   eyebrow,
@@ -231,21 +296,21 @@ export function SectionHead({
   return (
     <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
       <div>
-        <p className="font-mono text-[11px] tracking-[0.3em] uppercase text-gold-400/90 mb-2">{eyebrow}</p>
-        <h2 className="font-display text-4xl sm:text-5xl font-semibold text-parch-100 leading-[1.05]">{title}</h2>
-        {sub && <p className="mt-3 text-parch-400 max-w-xl leading-relaxed">{sub}</p>}
+        <p className="eyebrow mb-2.5">{eyebrow}</p>
+        <InkTitle>
+          <span className="font-display text-4xl sm:text-5xl font-semibold tx1 leading-[1.05]">{title}</span>
+        </InkTitle>
+        {sub && <p className="mt-3 tx3 max-w-xl leading-relaxed">{sub}</p>}
       </div>
       {action}
     </div>
   );
 }
 
-/* ---------------- Form bits ---------------- */
-
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block mb-4">
-      <span className="block font-mono text-[10px] tracking-[0.25em] uppercase text-parch-400 mb-1.5">{label}</span>
+      <span className="block font-mono text-[10px] tracking-[0.22em] uppercase tx3 mb-1.5">{label}</span>
       {children}
     </label>
   );
@@ -255,8 +320,17 @@ export function Ornament({ className = "" }: { className?: string }) {
   return (
     <div className={`flex items-center gap-3 ${className}`} aria-hidden>
       <span className="ornament-line flex-1" />
-      <Icon name="spark" className="w-3.5 h-3.5 text-gold-500/70" />
+      <Icon name="spark" className="w-3.5 h-3.5 opacity-60 text-[var(--gold)]" />
       <span className="ornament-line flex-1" />
+    </div>
+  );
+}
+
+export function Empty({ icon = "spark", text }: { icon?: IconName; text: string }) {
+  return (
+    <div className="panel-in flex flex-col items-center justify-center py-14 gap-3">
+      <Icon name={icon} className="w-7 h-7 tx3" />
+      <p className="tx3 text-sm">{text}</p>
     </div>
   );
 }

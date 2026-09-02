@@ -2,30 +2,37 @@ import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { v4 as uuid } from "uuid";
 import type {
-  BookMeta,
   Chapter,
   Character,
   LoreEntry,
   Location,
+  TimelineEvent,
   PartyState,
-} from "./types";
-import {
-  SEED_CHAPTERS,
-  SEED_CHARACTERS,
-  SEED_LORE,
-  SEED_LOCATIONS,
-  SEED_META,
-  SEED_PARTY,
-} from "./seed";
+  Progress,
+} from "../types";
+import { SEED_CHAPTERS } from "../data/chapters";
+import { SEED_CHARACTERS } from "../data/characters";
+import { SEED_LORE } from "../data/lore";
+import { SEED_LOCATIONS } from "../data/locations";
+import { SEED_EVENTS } from "../data/timeline";
+
+/* small helper type kept local to avoid polluting public types */
+export interface BookMeta {
+  title: string;
+  subtitle: string;
+  author: string;
+}
+
+const P = "grim.v2.";
 
 function load<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    return JSON.parse(raw) as T;
+    if (raw) return JSON.parse(raw) as T;
   } catch {
-    return fallback;
+    /* ignore */
   }
+  return fallback;
 }
 
 function usePersistent<T>(key: string, initial: T) {
@@ -34,11 +41,24 @@ function usePersistent<T>(key: string, initial: T) {
     try {
       localStorage.setItem(key, JSON.stringify(value));
     } catch {
-      /* storage unavailable */
+      /* ignore */
     }
   }, [key, value]);
   return [value, setValue] as const;
 }
+
+const SEED_META: BookMeta = {
+  title: "Песнь Пепла",
+  subtitle: "Хроники Аэлории · книга первая",
+  author: "имя автора",
+};
+
+const SEED_PARTY: PartyState = { locationId: "loc-moonport", route: ["loc-moonport"] };
+const SEED_PROGRESS: Progress = {
+  lastOpenedChapterId: "ch-prologue",
+  readChapterIds: ["ch-prologue"],
+  updatedAt: Date.now(),
+};
 
 interface LibraryApi {
   meta: BookMeta;
@@ -46,7 +66,9 @@ interface LibraryApi {
   characters: Character[];
   lore: LoreEntry[];
   locations: Location[];
+  events: TimelineEvent[];
   party: PartyState;
+  progress: Progress;
   savedAt: number;
 
   setMeta: (m: BookMeta) => void;
@@ -67,13 +89,19 @@ interface LibraryApi {
   updateLocation: (id: string, patch: Partial<Location>) => void;
   deleteLocation: (id: string) => void;
 
+  addEvent: (e: Omit<TimelineEvent, "id">) => void;
+  deleteEvent: (id: string) => void;
+
   moveParty: (locationId: string) => void;
   resetRoute: () => void;
+
+  openChapter: (id: string) => void;
+
+  exportData: () => void;
+  resetData: () => void;
 }
 
 const LibraryContext = createContext<LibraryApi | null>(null);
-
-const P = "grimoire.v1.";
 
 export function LibraryProvider({ children }: { children: ReactNode }) {
   const [meta, setMeta] = usePersistent<BookMeta>(P + "meta", SEED_META);
@@ -81,7 +109,9 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [characters, setCharacters] = usePersistent<Character[]>(P + "characters", SEED_CHARACTERS);
   const [lore, setLore] = usePersistent<LoreEntry[]>(P + "lore", SEED_LORE);
   const [locations, setLocations] = usePersistent<Location[]>(P + "locations", SEED_LOCATIONS);
+  const [events, setEvents] = usePersistent<TimelineEvent[]>(P + "events", SEED_EVENTS);
   const [party, setParty] = usePersistent<PartyState>(P + "party", SEED_PARTY);
+  const [progress, setProgress] = usePersistent<Progress>(P + "progress", SEED_PROGRESS);
 
   const [savedAt, setSavedAt] = useState(0);
   const booted = useRef(false);
@@ -91,15 +121,17 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       return;
     }
     setSavedAt(Date.now());
-  }, [meta, chapters, characters, lore, locations, party]);
+  }, [meta, chapters, characters, lore, locations, events, party, progress]);
 
   const api: LibraryApi = {
     meta,
-    chapters: [...chapters].sort((a, b) => a.updatedAt - b.updatedAt),
+    chapters: [...chapters].sort((a, b) => a.order - b.order),
     characters,
     lore,
     locations,
+    events,
     party,
+    progress,
     savedAt,
 
     setMeta,
@@ -136,6 +168,9 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       }));
     },
 
+    addEvent: (e) => setEvents((prev) => [...prev, { ...e, id: uuid() }]),
+    deleteEvent: (id) => setEvents((prev) => prev.filter((e) => e.id !== id)),
+
     moveParty: (locationId) =>
       setParty((prev) => ({
         locationId,
@@ -149,6 +184,35 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         locationId: prev.locationId,
         route: prev.locationId ? [prev.locationId] : [],
       })),
+
+    openChapter: (id) =>
+      setProgress((p) => ({
+        lastOpenedChapterId: id,
+        readChapterIds: p.readChapterIds.includes(id) ? p.readChapterIds : [...p.readChapterIds, id],
+        updatedAt: Date.now(),
+      })),
+
+    exportData: () => {
+      const data = { meta, chapters, characters, lore, locations, events, party, progress };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "pesn-pepla-dannye.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+
+    resetData: () => {
+      try {
+        Object.keys(localStorage)
+          .filter((k) => k.startsWith(P))
+          .forEach((k) => localStorage.removeItem(k));
+      } catch {
+        /* ignore */
+      }
+      window.location.reload();
+    },
   };
 
   return <LibraryContext.Provider value={api}>{children}</LibraryContext.Provider>;
@@ -159,6 +223,8 @@ export function useLibrary(): LibraryApi {
   if (!ctx) throw new Error("useLibrary must be used within LibraryProvider");
   return ctx;
 }
+
+/* ============ helpers ============ */
 
 export function wordCount(text: string): number {
   return text.split(/\s+/).filter(Boolean).length;
@@ -178,5 +244,11 @@ export function toRoman(n: number): string {
       v -= val;
     }
   }
-  return out || "I";
+  return out || "0";
 }
+
+export function fmtDate(ts: number): string {
+  return new Date(ts).toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
+}
+
+
