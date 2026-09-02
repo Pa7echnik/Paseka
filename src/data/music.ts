@@ -25,10 +25,6 @@ export const SEED_TRACKS: MusicTrack[] = [
     boundLocationId: "loc-moonport",
   },
   {
-  id: "tr-lullaby",
-  },
-  },
-  {
     id: "tr-lullaby",
     title: "Пепельная колыбельная",
     subtitle: "звучит в прологе",
