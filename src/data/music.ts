@@ -16,7 +16,6 @@ export const SEED_TRACKS: MusicTrack[] = [
     boundLocationId: "loc-moonport",
   },
   {
-  {
     id: "tr-moonport",
     title: "Тема Лунного порта",
     subtitle: "основная тема города",
