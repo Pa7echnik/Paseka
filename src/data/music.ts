@@ -21,7 +21,9 @@ export const SEED_TRACKS: MusicTrack[] = [
     subtitle: "основная тема города",
     category: "тема",
     duration: 214,
+    src: `${import.meta.env.BASE_URL}audio/0808.MP3`,
     boundLocationId: "loc-moonport",
+},
   },
   {
     id: "tr-lullaby",
